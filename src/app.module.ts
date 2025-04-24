@@ -32,6 +32,7 @@ import { OrdersModule } from "./orders/order.module";
         database: configService.get("DB_DATABASE"),
         entities: [__dirname + "/**/*.entity{.ts,.js}"],
         synchronize: configService.get("NODE_ENV") !== "production",
+        // synchronize: "true",
         ssl:
           configService.get("DB_SSL") === "true"
             ? {
