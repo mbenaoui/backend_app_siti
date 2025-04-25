@@ -1,7 +1,7 @@
 import { NestFactory } from "@nestjs/core"
 import { AppModule } from "./app.module"
 import { ValidationPipe } from "@nestjs/common"
-import * as express from "express"
+import express from "express" // Correct import for Express
 
 // For local development
 async function bootstrap() {
@@ -26,43 +26,39 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 // For Vercel serverless deployment
-const server = express()
-let app: any
+// Create a simple Express app for handling requests
+const expressApp = express()
 
-async function createApp(): Promise<any> {
-  const nestApp = await NestFactory.create(AppModule, { logger: ["error", "warn", "log"] })
+// Cache the NestJS app instance
+let cachedApp: any = null
 
-  nestApp.enableCors({
-    origin: true,
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-    credentials: true,
-  })
+async function createApp() {
+  if (!cachedApp) {
+    const app = await NestFactory.create(AppModule)
 
-  nestApp.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  )
+    app.enableCors({
+      origin: true,
+      methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+      credentials: true,
+    })
 
-  await nestApp.init()
-  return nestApp
+    app.useGlobalPipes(new ValidationPipe())
+
+    await app.init()
+    cachedApp = app
+  }
+  return cachedApp
 }
 
+// Export the handler function for Vercel
 export default async function handler(req: any, res: any) {
   try {
-    if (!app) {
-      app = await createApp()
-    }
-
-    // Handle the request
-    const expressInstance = app.getHttpAdapter().getInstance()
-    expressInstance(req, res)
+    const app = await createApp()
+    const server = app.getHttpAdapter().getInstance()
+    server(req, res)
   } catch (error) {
     console.error("Serverless function error:", error)
-    res.status(500).send({
+    res.status(500).json({
       error: "Internal Server Error",
       message: error.message,
       stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
